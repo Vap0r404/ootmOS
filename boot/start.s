@@ -10,8 +10,10 @@ start:
 	# Set up a basic stack.
 	mov $stack_top, %esp
 
-	# Pass Multiboot info to kmain if desired in future.
-	# For now we ignore the parameters and just call kmain().
+	# EAX = Multiboot magic, EBX = multiboot_info* (per Multiboot1 spec).
+	# Pass them as (uint32_t magic, uint32_t info_addr) arguments to kmain.
+	push %ebx
+	push %eax
 	call kmain
 
 halt:

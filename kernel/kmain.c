@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "multiboot.h"
 
 static volatile uint16_t* const VGA_BUFFER = (uint16_t*)0xB8000;
 static const int VGA_WIDTH = 80;
@@ -33,17 +34,67 @@ static void vga_write_at(const char* s, int row, int col, uint8_t color) {
     }
 }
 
-void kmain(void) {
+static int log_row = 1;
+
+static void kprint(const char* s, uint8_t color) {
+    if (log_row >= VGA_HEIGHT) {
+        log_row = 1;
+    }
+    vga_write_at(s, log_row, 2, color);
+    log_row++;
+}
+
+static void kprint_hex32(uint32_t value, uint8_t color) {
+    char buf[11];
+    buf[0] = '0';
+    buf[1] = 'x';
+    for (int i = 0; i < 8; ++i) {
+        uint8_t nibble = (value >> ((7 - i) * 4)) & 0xF;
+        buf[2 + i] = (nibble < 10) ? ('0' + nibble) : ('A' + (nibble - 10));
+    }
+    buf[10] = '\0';
+    kprint(buf, color);
+}
+
+void kmain(uint32_t magic, uint32_t mb_info_addr) {
     // Colors: 0x0 = black, 0x1 = blue, 0x5 = magenta, 0xF = white
     uint8_t bg = 0x1;  // deep blue
     uint8_t fg = 0xF;  // bright white
     uint8_t accent = 0x5; // magenta accent
 
     vga_clear(vga_color(fg, bg));
+    log_row = 1;
+
+    kprint("booting ootmOS...", vga_color(fg, bg));
+    kprint("handing off from GRUB, entering kernel space.", vga_color(fg, bg));
+
+    kprint("multiboot magic:", vga_color(fg, bg));
+    kprint_hex32(magic, vga_color(accent, bg));
+
+    if (magic == MULTIBOOT_BOOTLOADER_MAGIC) {
+        multiboot_info_t* mbi = (multiboot_info_t*)(uintptr_t)mb_info_addr;
+
+        kprint("multiboot info @", vga_color(fg, bg));
+        kprint_hex32(mb_info_addr, vga_color(accent, bg));
+
+        if (mbi->flags & MULTIBOOT_INFO_MEM) {
+            kprint("mem_lower (KB):", vga_color(fg, bg));
+            kprint_hex32(mbi->mem_lower, vga_color(accent, bg));
+
+            kprint("mem_upper (KB):", vga_color(fg, bg));
+            kprint_hex32(mbi->mem_upper, vga_color(accent, bg));
+        } else {
+            kprint("multiboot: no basic mem info flag.", vga_color(fg, bg));
+        }
+    } else {
+        kprint("multiboot magic mismatch!", vga_color(fg, bg));
+    }
+
+    kprint("this one is yours. make it weird.", vga_color(accent, bg));
 
     const char* title = "ootmOS";
     const char* subtitle = "one of the many, but this one's yours.";
-    const char* hint = "legacy BIOS boot | GRUB | Multiboot2";
+    const char* hint = "legacy BIOS boot | GRUB | Multiboot1";
 
     vga_write_at(title, 10, 35, vga_color(accent, bg));
     vga_write_at(subtitle, 12, 18, vga_color(fg, bg));
