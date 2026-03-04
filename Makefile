@@ -1,5 +1,5 @@
 TARGET    := ootmOS
-ARCH      := x86_64
+ARCH      := i386
 
 ISO_DIR   := iso
 BUILD_DIR := build
@@ -7,12 +7,12 @@ BUILD_DIR := build
 KERNEL_ELF := $(BUILD_DIR)/$(TARGET).elf
 KERNEL_BIN := $(BUILD_DIR)/$(TARGET).bin
 
-CC      := x86_64-linux-gnu-gcc
-LD      := x86_64-linux-gnu-ld
-AS      := x86_64-linux-gnu-as
+CC      := gcc
+LD      := ld
+AS      := gcc
 
-CFLAGS  := -ffreestanding -fno-stack-protector -fno-pic -mno-red-zone -m64 -Wall -Wextra -std=gnu11
-LDFLAGS := -nostdlib -z max-page-size=0x1000
+CFLAGS  := -ffreestanding -fno-stack-protector -fno-pic -m32 -Wall -Wextra -std=gnu11
+LDFLAGS := -nostdlib -m elf_i386 -z max-page-size=0x1000
 
 SRCS_C := $(wildcard kernel/*.c)
 SRCS_S := $(wildcard boot/*.s)
@@ -25,7 +25,7 @@ all: $(KERNEL_BIN)
 
 $(BUILD_DIR)/boot/%.o: boot/%.s
 	mkdir -p $(dir $@)
-	$(AS) -m64 -o $@ $<
+	$(AS) -m32 -c $< -o $@
 
 $(BUILD_DIR)/kernel/%.o: kernel/%.c
 	mkdir -p $(dir $@)
@@ -35,7 +35,7 @@ $(KERNEL_ELF): $(OBJS) linker.ld
 	$(LD) $(LDFLAGS) -T linker.ld -o $@ $(OBJS)
 
 $(KERNEL_BIN): $(KERNEL_ELF)
-	x86_64-linuxssss-gnu-objcopy -O elf32-i386 $< $@
+	objcopy -O elf32-i386 $< $@
 
 iso: $(KERNEL_BIN)
 	rm -rf $(ISO_DIR)
