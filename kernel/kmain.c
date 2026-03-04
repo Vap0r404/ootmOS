@@ -1,11 +1,12 @@
 #include <stdint.h>
 #include "multiboot.h"
+#include "idt.h"
 
 static volatile uint16_t* const VGA_BUFFER = (uint16_t*)0xB8000;
 static const int VGA_WIDTH = 80;
 static const int VGA_HEIGHT = 25;
 
-static uint8_t vga_color(uint8_t fg, uint8_t bg) {
+uint8_t vga_color(uint8_t fg, uint8_t bg) {
     return fg | (bg << 4);
 }
 
@@ -34,17 +35,20 @@ static void vga_write_at(const char* s, int row, int col, uint8_t color) {
     }
 }
 
-static int log_row = 1;
+static const int LOG_ROW_START = 1;
+static const int LOG_ROW_END   = 9;  // keep logs in rows 1-9 (banner starts lower)
 
-static void kprint(const char* s, uint8_t color) {
-    if (log_row >= VGA_HEIGHT) {
-        log_row = 1;
+static int log_row = LOG_ROW_START;
+
+void kprint(const char* s, uint8_t color) {
+    if (log_row > LOG_ROW_END) {
+        log_row = LOG_ROW_END;
     }
     vga_write_at(s, log_row, 2, color);
     log_row++;
 }
 
-static void kprint_hex32(uint32_t value, uint8_t color) {
+void kprint_hex32(uint32_t value, uint8_t color) {
     char buf[11];
     buf[0] = '0';
     buf[1] = 'x';
@@ -63,7 +67,7 @@ void kmain(uint32_t magic, uint32_t mb_info_addr) {
     uint8_t accent = 0x5; // magenta accent
 
     vga_clear(vga_color(fg, bg));
-    log_row = 1;
+    log_row = LOG_ROW_START;
 
     kprint("booting ootmOS...", vga_color(fg, bg));
     kprint("handing off from GRUB, entering kernel space.", vga_color(fg, bg));
@@ -92,13 +96,15 @@ void kmain(uint32_t magic, uint32_t mb_info_addr) {
 
     kprint("this one is yours. make it weird.", vga_color(accent, bg));
 
+    idt_init();
+
     const char* title = "ootmOS";
     const char* subtitle = "one of the many, but this one's yours.";
     const char* hint = "legacy BIOS boot | GRUB | Multiboot1";
 
-    vga_write_at(title, 10, 35, vga_color(accent, bg));
-    vga_write_at(subtitle, 12, 18, vga_color(fg, bg));
-    vga_write_at(hint, 14, 22, vga_color(fg, bg));
+    vga_write_at(title, 11, 35, vga_color(accent, bg));
+    vga_write_at(subtitle, 13, 18, vga_color(fg, bg));
+    vga_write_at(hint, 15, 22, vga_color(fg, bg));
 
     // Hang the CPU.
     for (;;) {
